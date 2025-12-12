@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSO 登入系統</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2/lib/msal-browser.min.js"></script>
+
+    <style>
+        body { font-family: "Segoe UI", sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+        h2 { color: #333; }
+        .btn { background-color: #0078d4; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 20px; width: 100%; }
+        .btn:hover { background-color: #005a9e; }
+        #userInfo { display: none; text-align: left; margin-top: 20px; line-height: 1.6; }
+        .label { font-weight: bold; color: #666; font-size: 0.9em; }
+        .error { color: red; margin-top: 10px; font-size: 0.9em; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>公司 SSO 登入</h2>
+    
+    <div id="loginSection">
+        <p>請使用公司帳號登入</p>
+        <button class="btn" onclick="signIn()">Microsoft 登入</button>
+        <p id="error-msg" class="error"></p>
+    </div>
+
+    <div id="userInfo">
+        <p><span class="label">姓名：</span> <span id="userName"></span></p>
+        <p><span class="label">Email：</span> <span id="userEmail"></span></p>
+        <p><span class="label">ID：</span> <span id="userId"></span></p>
+        <button class="btn" style="background-color: #d83b01;" onclick="signOut()">登出</button>
+    </div>
+</div>
+
+<script>
+    // 檢查程式庫是否載入成功
+    if (typeof msal === 'undefined') {
+        document.getElementById('error-msg').innerText = "錯誤：無法載入驗證元件，請檢查網路連線。";
+        document.getElementById('error-msg').style.display = "block";
+    }
+
+    const msalConfig = {
+        auth: {
+            clientId: "1f1288b0-c7e7-47f4-87c7-f4298713e94f", 
+            authority: "https://login.microsoftonline.com/2f74b64d-40ba-433a-85b2-bf829b661427", 
+            redirectUri: "https://dalisso.mis-94c.workers.dev/", // 明確指定您的網址
+        },
+        cache: {
+            cacheLocation: "sessionStorage", 
+            storeAuthStateInCookie: false, 
+        }
+    };
+
+    const loginRequest = {
+        scopes: ["User.Read"]
+    };
+
+    let myMSALObj;
+    try {
+        myMSALObj = new msal.PublicClientApplication(msalConfig);
+    } catch (e) {
+        console.error("初始化失敗:", e);
+    }
+
+    // 初始化並檢查是否已經登入
+    myMSALObj.initialize().then(() => {
+        myMSALObj.handleRedirectPromise().then(handleResponse).catch(err => {
+            console.error(err);
+        });
+    });
+
+    function handleResponse(response) {
+        if (response !== null) {
+            showWelcomeMessage(response.account);
+        } else {
+            const currentAccounts = myMSALObj.getAllAccounts();
+            if (currentAccounts.length > 0) {
+                showWelcomeMessage(currentAccounts[0]);
+            }
+        }
+    }
+
+    function signIn() {
+        if (!myMSALObj) {
+            alert("系統尚未初始化，請重新整理頁面");
+            return;
+        }
+        myMSALObj.loginRedirect(loginRequest);
+    }
+
+    function signOut() {
+        const logoutRequest = {
+            account: myMSALObj.getAllAccounts()[0],
+            postLogoutRedirectUri: "https://dalisso.mis-94c.workers.dev/"
+        };
+        myMSALObj.logoutRedirect(logoutRequest);
+    }
+
+    function showWelcomeMessage(account) {
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("userInfo").style.display = "block";
+        document.getElementById("userName").innerText = account.name;
+        document.getElementById("userEmail").innerText = account.username;
+        document.getElementById("userId").innerText = account.localAccountId;
+    }
+</script>
+
+</body>
+</html>
