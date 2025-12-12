@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台北辦公室 - 會議室預約系統</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .floor-plan-note {
+            background-color: #e8f4ff;
+            padding: 10px;
+            border-left: 5px solid #2196F3;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #444;
+        }
+        input[type="text"],
+        input[type="datetime-local"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box; /* 確保padding不影響寬度 */
+        }
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .room-details {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>會議室預約申請</h2>
+    
+    <div class="floor-plan-note">
+        <strong>注意事項：</strong><br>
+        VIP室僅限貴賓接待與洽談，不可用於一般內部會議。<br>
+        一般會議室：誠信、品質、服務、創新、永續。
+    </div>
+
+    <form id="bookingForm" onsubmit="submitBooking(event)">
+        <div class="form-group">
+            <label for="bookerName">預約人姓名</label>
+            <input type="text" id="bookerName" name="bookerName" placeholder="請輸入您的姓名" required>
+        </div>
+
+        <div class="form-group">
+            <label for="roomSelect">選擇會議室</label>
+            <select id="roomSelect" name="roomSelect" required onchange="updateRoomInfo()">
+                <option value="" disabled selected>請選擇...</option>
+                <option value="誠信">誠信 (7人, 視訊)</option>
+                <option value="品質">品質 (7人, 視訊)</option>
+                <option value="服務">服務 (5人, 視訊)</option>
+                <option value="創新">創新 (12人, 視訊)</option>
+                <option value="永續">永續 (15人, 視訊)</option>
+                <option value="洽談室">洽談室 (4人)</option>
+            </select>
+            <div id="roomInfo" class="room-details"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="meetingType">會議種類</label>
+            <select id="meetingType" name="meetingType" required>
+                <option value="內部會議">內部會議</option>
+                <option value="部門週會">部門週會</option>
+                <option value="客戶拜訪">客戶拜訪/視訊</option>
+                <option value="面試">面試</option>
+                <option value="教育訓練">教育訓練</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="startTime">開始時間</label>
+            <input type="datetime-local" id="startTime" name="startTime" required>
+        </div>
+
+        <div class="form-group">
+            <label for="endTime">結束時間</label>
+            <input type="datetime-local" id="endTime" name="endTime" required>
+        </div>
+
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="isRecurring" name="isRecurring">
+            <label for="isRecurring" style="margin-bottom:0; font-weight:normal;">是否為重複預約 (例：每週固定時段)</label>
+        </div>
+
+        <div class="form-group">
+            <label for="description">會議說明 / 備註</label>
+            <textarea id="description" name="description" rows="3" placeholder="請輸入會議主旨或特殊需求..."></textarea>
+        </div>
+
+        <button type="submit">送出預約</button>
+    </form>
+</div>
+
+<script>
+    // 設定預設時間為當前時間的下一個整點
+    document.addEventListener("DOMContentLoaded", function() {
+        const now = new Date();
+        now.setMinutes(0);
+        now.setSeconds(0);
+        now.setMilliseconds(0);
+        now.setHours(now.getHours() + 1);
+        
+        // 格式化為 datetime-local 所需的 YYYY-MM-DDTHH:MM 格式
+        const formatDateTime = (date) => {
+            const pad = (n) => n < 10 ? '0' + n : n;
+            return date.getFullYear() + '-' + 
+                   pad(date.getMonth() + 1) + '-' + 
+                   pad(date.getDate()) + 'T' + 
+                   pad(date.getHours()) + ':' + 
+                   pad(date.getMinutes());
+        };
+
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+
+        startTimeInput.value = formatDateTime(now);
+        
+        // 預設結束時間為開始時間後一小時
+        const endTime = new Date(now);
+        endTime.setHours(endTime.getHours() + 1);
+        endTimeInput.value = formatDateTime(endTime);
+    });
+
+    // 簡單的表單送出處理
+    function submitBooking(event) {
+        event.preventDefault(); // 防止頁面重整
+
+        const start = new Date(document.getElementById('startTime').value);
+        const end = new Date(document.getElementById('endTime').value);
+
+        if (end <= start) {
+            alert("錯誤：結束時間必須晚於開始時間！");
+            return;
+        }
+
+        const formData = {
+            name: document.getElementById('bookerName').value,
+            room: document.getElementById('roomSelect').value,
+            type: document.getElementById('meetingType').value,
+            start: document.getElementById('startTime').value,
+            end: document.getElementById('endTime').value,
+            recurring: document.getElementById('isRecurring').checked ? "是" : "否",
+            desc: document.getElementById('description').value
+        };
+
+        // 這裡通常會連接後端 API，目前僅用 alert 展示
+        alert(`預約成功！\n\n預約人：${formData.name}\n會議室：${formData.room}\n時間：${formData.start} 至 ${formData.end}\n重複：${formData.recurring}`);
+    }
+
+    // 顯示額外資訊
+    function updateRoomInfo() {
+        const room = document.getElementById('roomSelect').value;
+        const infoDiv = document.getElementById('roomInfo');
+        let text = "";
+
+        // 根據平面圖的特定規則提示
+        if (room === "洽談室") {
+            text = "注意：此空間較小 (4人)，通常不含視訊設備。";
+        } else if (room === "創新" || room === "永續") {
+            text = "此為大型會議室，請確保與會人數符合需求以免浪費空間。";
+        }
+        infoDiv.textContent = text;
+    }
+</script>
+
+</body>
+</html>
